@@ -344,7 +344,8 @@ def load_study_from_run(run: neptune.Run):
 
 def _log_study_details(run, study: optuna.Study):
     run['study/study_name'] = study.study_name
-    run['study/direction'] = study.direction
+    if not study._is_multi_objective():
+        run['study/direction'] = study.direction
     run['study/directions'] = study.directions
     run['study/system_attrs'] = study.system_attrs
     run['study/user_attrs'] = study.user_attrs
@@ -401,48 +402,63 @@ def _log_plots(run,
         raise NotImplementedError(f'{visualization_backend} visualisation backend is not implemented')
 
     if vis.is_available:
-        params = list(p_name for t in study.trials for p_name in t.params.keys())
-
-        if log_plot_contour and any(params):
-            run['visualizations/plot_contour'] = neptune.types.File.as_html(vis.plot_contour(study))
+        if log_plot_contour:
+            if study._is_multi_objective():
+                for i in range(len(study.directions)):
+                    run[f'visualizations/plot_contour/{i}'] = neptune.types.File.as_html(vis.plot_contour(study, target=lambda t: t.values[i]))
+            else:
+                run['visualizations/plot_contour'] = neptune.types.File.as_html(vis.plot_contour(study))
 
         if log_plot_edf:
-            run['visualizations/plot_edf'] = neptune.types.File.as_html(vis.plot_edf(study))
+            if study._is_multi_objective():
+                for i in range(len(study.directions)):
+                    run[f"visualizations/plot_edf/{i}"] = neptune.types.File.as_html(vis.plot_edf(study, target = lambda t: t.values[i]))
+            else:
+                run['visualizations/plot_edf'] = neptune.types.File.as_html(vis.plot_edf(study))
 
         if log_plot_parallel_coordinate:
-            run['visualizations/plot_parallel_coordinate'] = \
-                neptune.types.File.as_html(vis.plot_parallel_coordinate(study))
+            if study._is_multi_objective():
+                for i in range(len(study.directions)):
+                    run[f"visualizations/plot_parallel_coordinate/{i}"] = neptune.types.File.as_html(vis.plot_parallel_coordinate(study, target=lambda t: t.values[i]))
+            else:
+                run['visualizations/plot_parallel_coordinate'] = neptune.types.File.as_html(vis.plot_parallel_coordinate(study))
 
-        if log_plot_param_importances and len(study.get_trials(states=(optuna.trial.TrialState.COMPLETE, optuna.trial.TrialState.PRUNED,))) > 1:
-            try:
+        if log_plot_param_importances and len(study.trials) > 1:
+            if study._is_multi_objective():
+                for i in range(len(study.directions)):
+                    run[f"visualizations/plot_param_importance/{i}"] = neptune.types.File.as_html(vis.plot_param_importances(study, target=lambda t: t.values[i]))
+            else:
                 run['visualizations/plot_param_importances'] = neptune.types.File.as_html(vis.plot_param_importances(study))
-            except (RuntimeError, ValueError, ZeroDivisionError):
-                # Unable to compute importances
-                pass
 
         if log_plot_pareto_front and study._is_multi_objective() and visualization_backend == 'plotly':
             run['visualizations/plot_pareto_front'] = neptune.types.File.as_html(vis.plot_pareto_front(study))
 
-        if log_plot_slice and any(params):
-            run['visualizations/plot_slice'] = neptune.types.File.as_html(vis.plot_slice(study))
+        if log_plot_slice:
+            if study._is_multi_objective():
+                for i in range(len(study.directions)):
+                    run[f"visualizations/plot_slice/{i}"] = neptune.types.File.as_html(vis.plot_slice(study, target = lambda t: t.values[i]))
+            else:
+                run['visualizations/plot_slice'] = neptune.types.File.as_html(vis.plot_slice(study))
 
         if log_plot_intermediate_values and any(trial.intermediate_values for trial in study.trials):
             # Intermediate values plot if available only if the above condition is met
-            run['visualizations/plot_intermediate_values'] = \
-                neptune.types.File.as_html(vis.plot_intermediate_values(study))
+            run['visualizations/plot_intermediate_values'] = neptune.types.File.as_html(vis.plot_intermediate_values(study))
 
         if log_plot_optimization_history:
-            run['visualizations/plot_optimization_history'] = \
-                neptune.types.File.as_html(vis.plot_optimization_history(study))
+            if study._is_multi_objective():
+                for i in range(len(study.directions)):
+                    run[f"visualizations/plot_optimization_history/{i}"] = neptune.types.File.as_html(vis.plot_optimization_history(study, target=lambda t: t.values[i]))
+            else:
+                run['visualizations/plot_optimization_history'] = neptune.types.File.as_html(vis.plot_optimization_history(study))
 
 
 def _log_best_trials(study: optuna.Study):
-    if not study.best_trials:
-        return dict()
-
-    best_results = {'value': study.best_value,
-                    'params': study.best_params,
-                    'value|params': f'value: {study.best_value}| params: {study.best_params}'}
+    if not study._is_multi_objective():
+        best_results = {'value': study.best_value,
+                        'params': study.best_params,
+                        'value|params': f'value: {study.best_value}| params: {study.best_params}'}
+    else:
+        best_results = {}
 
     for trial in study.best_trials:
         best_results[f'trials/{trial._trial_id}/datetime_start'] = trial.datetime_start
@@ -451,7 +467,8 @@ def _log_best_trials(study: optuna.Study):
         best_results[f'trials/{trial._trial_id}/distributions'] = trial.distributions
         best_results[f'trials/{trial._trial_id}/intermediate_values'] = trial.intermediate_values
         best_results[f'trials/{trial._trial_id}/params'] = trial.params
-        best_results[f'trials/{trial._trial_id}/value'] = trial.value
+        if not study._is_multi_objective():
+            best_results[f'trials/{trial._trial_id}/value'] = trial.value
         best_results[f'trials/{trial._trial_id}/values'] = trial.values
 
     return best_results
@@ -463,19 +480,23 @@ def _log_trials(run, trials: Iterable[optuna.trial.FrozenTrial]):
         if trial.state.is_finished() and trial.state != optuna.trial.TrialState.COMPLETE:
             handle[f'trials/{trial._trial_id}/state'] = repr(trial.state)
 
-        if trial.value:
-            handle['values'].log(trial.value, step=trial._trial_id)
+        if study._is_multi_objective():
+            handle['values'].log(trial.values)
+            handle['values|params'].log(f'values: {trial.values}| params: {trial.params}')
+            handle[f'trials/{trial._trial_id}/values'] = trial.values
+        else:
+            handle['values'].log(trial.value)
+            handle['values|params'].log(f'value: {trial.value}| params: {trial.params}')
+            handle[f'trials/{trial._trial_id}/value'] = trial.value
 
         handle['params'].log(trial.params)
-        handle['values|params'].log(f'value: {trial.value}| params: {trial.params}')
+
         handle[f'trials/{trial._trial_id}/datetime_start'] = trial.datetime_start
         handle[f'trials/{trial._trial_id}/datetime_complete'] = trial.datetime_complete
         handle[f'trials/{trial._trial_id}/duration'] = trial.duration
         handle[f'trials/{trial._trial_id}/distributions'] = _stringify_keys(trial.distributions)
         handle[f'trials/{trial._trial_id}/intermediate_values'] = _stringify_keys(trial.intermediate_values)
         handle[f'trials/{trial._trial_id}/params'] = _stringify_keys(trial.params)
-        handle[f'trials/{trial._trial_id}/value'] = trial.value
-        handle[f'trials/{trial._trial_id}/values'] = trial.values
 
 
 def _stringify_keys(o):
