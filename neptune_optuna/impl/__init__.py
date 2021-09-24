@@ -480,7 +480,7 @@ def _log_trials(run, trials: Iterable[optuna.trial.FrozenTrial]):
         if trial.state.is_finished() and trial.state != optuna.trial.TrialState.COMPLETE:
             handle[f'trials/{trial._trial_id}/state'] = repr(trial.state)
 
-        if study._is_multi_objective():
+        if len(trial.values) > 1:
             handle['values'].log(trial.values)
             handle['values|params'].log(f'values: {trial.values}| params: {trial.params}')
             handle[f'trials/{trial._trial_id}/values'] = trial.values
