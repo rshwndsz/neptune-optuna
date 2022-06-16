@@ -170,17 +170,19 @@ class NeptuneCallback:
 
     def _log_plots(self, study, trial):
         if self._should_log_plots(study, trial):
-            _log_plots(self.run, study,
-                       visualization_backend=self._visualization_backend,
-                       log_plot_contour=self._log_plot_contour,
-                       log_plot_edf=self._log_plot_edf,
-                       log_plot_parallel_coordinate=self._log_plot_parallel_coordinate,
-                       log_plot_param_importances=self._log_plot_param_importances,
-                       log_plot_pareto_front=self._log_plot_pareto_front,
-                       log_plot_slice=self._log_plot_slice,
-                       log_plot_optimization_history=self._log_plot_optimization_history,
-                       log_plot_intermediate_values=self._log_plot_intermediate_values,
-                       )
+            _log_plots(
+                self.run, 
+                study,
+                visualization_backend=self._visualization_backend,
+                log_plot_contour=self._log_plot_contour,
+                log_plot_edf=self._log_plot_edf,
+                log_plot_parallel_coordinate=self._log_plot_parallel_coordinate,
+                log_plot_param_importances=self._log_plot_param_importances,
+                log_plot_pareto_front=self._log_plot_pareto_front,
+                log_plot_slice=self._log_plot_slice,
+                log_plot_optimization_history=self._log_plot_optimization_history,
+                log_plot_intermediate_values=self._log_plot_intermediate_values,
+            )
 
     def _log_study(self, study, trial):
         if self._should_log_study(trial):
@@ -293,17 +295,19 @@ def log_study_metadata(study: optuna.Study,
         run['study/distributions'].log(list(trial.distributions for trial in study.trials))
 
     if log_plots:
-        _log_plots(run, study,
-                   visualization_backend=visualization_backend,
-                   log_plot_contour=log_plot_contour,
-                   log_plot_edf=log_plot_edf,
-                   log_plot_parallel_coordinate=log_plot_parallel_coordinate,
-                   log_plot_param_importances=log_plot_param_importances,
-                   log_plot_pareto_front=log_plot_pareto_front,
-                   log_plot_slice=log_plot_slice,
-                   log_plot_optimization_history=log_plot_optimization_history,
-                   log_plot_intermediate_values=log_plot_intermediate_values,
-                   )
+        _log_plots(
+            run, 
+            study,
+            visualization_backend=visualization_backend,
+            log_plot_contour=log_plot_contour,
+            log_plot_edf=log_plot_edf,
+            log_plot_parallel_coordinate=log_plot_parallel_coordinate,
+            log_plot_param_importances=log_plot_param_importances,
+            log_plot_pareto_front=log_plot_pareto_front,
+            log_plot_slice=log_plot_slice,
+            log_plot_optimization_history=log_plot_optimization_history,
+            log_plot_intermediate_values=log_plot_intermediate_values,
+        )
 
     if log_study:
         _log_study(run, study)
@@ -359,7 +363,7 @@ def _log_study_details(run, study: optuna.Study):
 def _log_study(run, study: optuna.Study):
     try:
         if type(study._storage) is optuna.storages._in_memory.InMemoryStorage:
-            """pickle and log the study object to the 'study/study.pkl' path"""
+            """Pickle and log the study object to the 'study/study.pkl' path"""
             run['study/study_name'] = study.study_name
             run['study/storage_type'] = 'InMemoryStorage'
             run['study/study'] = File.as_pickle(study)
@@ -405,28 +409,28 @@ def _log_plots(run,
         if log_plot_contour:
             if study._is_multi_objective():
                 for i in range(len(study.directions)):
-                    run[f'visualizations/plot_contour/{i}'] = neptune.types.File.as_html(vis.plot_contour(study, target=lambda t: t.values[i]))
+                    run[f'visualizations/plot_contour/{i}'] = neptune.types.File.as_html(vis.plot_contour(study, target=lambda t: t.values[i], target_name=f'Objective {i}'))
             else:
                 run['visualizations/plot_contour'] = neptune.types.File.as_html(vis.plot_contour(study))
 
         if log_plot_edf:
             if study._is_multi_objective():
                 for i in range(len(study.directions)):
-                    run[f"visualizations/plot_edf/{i}"] = neptune.types.File.as_html(vis.plot_edf(study, target = lambda t: t.values[i]))
+                    run[f"visualizations/plot_edf/{i}"] = neptune.types.File.as_html(vis.plot_edf(study, target = lambda t: t.values[i], target_name=f'Objective {i}'))
             else:
                 run['visualizations/plot_edf'] = neptune.types.File.as_html(vis.plot_edf(study))
 
         if log_plot_parallel_coordinate:
             if study._is_multi_objective():
                 for i in range(len(study.directions)):
-                    run[f"visualizations/plot_parallel_coordinate/{i}"] = neptune.types.File.as_html(vis.plot_parallel_coordinate(study, target=lambda t: t.values[i]))
+                    run[f"visualizations/plot_parallel_coordinate/{i}"] = neptune.types.File.as_html(vis.plot_parallel_coordinate(study, target=lambda t: t.values[i], target_name=f'Objective {i}'))
             else:
                 run['visualizations/plot_parallel_coordinate'] = neptune.types.File.as_html(vis.plot_parallel_coordinate(study))
 
         if log_plot_param_importances and len(study.trials) > 1:
             if study._is_multi_objective():
                 for i in range(len(study.directions)):
-                    run[f"visualizations/plot_param_importance/{i}"] = neptune.types.File.as_html(vis.plot_param_importances(study, target=lambda t: t.values[i]))
+                    run[f"visualizations/plot_param_importance/{i}"] = neptune.types.File.as_html(vis.plot_param_importances(study, target=lambda t: t.values[i], target_name=f'Objective {i}'))
             else:
                 run['visualizations/plot_param_importances'] = neptune.types.File.as_html(vis.plot_param_importances(study))
 
@@ -436,7 +440,7 @@ def _log_plots(run,
         if log_plot_slice:
             if study._is_multi_objective():
                 for i in range(len(study.directions)):
-                    run[f"visualizations/plot_slice/{i}"] = neptune.types.File.as_html(vis.plot_slice(study, target = lambda t: t.values[i]))
+                    run[f"visualizations/plot_slice/{i}"] = neptune.types.File.as_html(vis.plot_slice(study, target = lambda t: t.values[i], target_name=f'Objective {i}'))
             else:
                 run['visualizations/plot_slice'] = neptune.types.File.as_html(vis.plot_slice(study))
 
@@ -447,16 +451,18 @@ def _log_plots(run,
         if log_plot_optimization_history:
             if study._is_multi_objective():
                 for i in range(len(study.directions)):
-                    run[f"visualizations/plot_optimization_history/{i}"] = neptune.types.File.as_html(vis.plot_optimization_history(study, target=lambda t: t.values[i]))
+                    run[f"visualizations/plot_optimization_history/{i}"] = neptune.types.File.as_html(vis.plot_optimization_history(study, target=lambda t: t.values[i], target_name=f'Objective {i}'))
             else:
                 run['visualizations/plot_optimization_history'] = neptune.types.File.as_html(vis.plot_optimization_history(study))
 
 
 def _log_best_trials(study: optuna.Study):
     if not study._is_multi_objective():
-        best_results = {'value': study.best_value,
-                        'params': study.best_params,
-                        'value|params': f'value: {study.best_value}| params: {study.best_params}'}
+        best_results = {
+            'value': study.best_value,
+            'params': study.best_params,
+            'value|params': f'value: {study.best_value}| params: {study.best_params}'
+        }
     else:
         best_results = {}
 
